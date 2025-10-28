@@ -1,7 +1,7 @@
 import express from 'express'
+import bcrypt from 'bcrypt'
 
 const app = express();
-import bcrypt from 'bcrypt'
 const PORT = 3000;
 
 let users = [];
@@ -18,9 +18,7 @@ app.get('/users', (req, res) => {
 
 app.post('/users', async(req, res) => {
     try{
-    const name = req.body.name;
-    const email = req.body.email;
-    const password = req.body.password;
+    const { name, email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     //acum - ora din momentul cand e trimis requestul
     const acum = new Date().toISOString();
