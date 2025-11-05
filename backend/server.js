@@ -1,38 +1,41 @@
 import express from 'express'
 import bcrypt from 'bcrypt'
+import { PrismaClient } from '@prisma/client';
+import cors from 'cors'
 
 const app = express();
+const prisma = new PrismaClient(); //initialize prisma database
 const PORT = 3000;
 
 let users = [];
 
 app.use(express.json())
-
+app.use(cors())
 app.get('/', (req, res) => {
-    res.send("Works")
+    res.send("The server is working...")
 })
 
-app.get('/users', (req, res) => {
-    return res.status(200).json(users);
+app.get('/users', cors(), async(req, res) => {
+    try {
+        const users = await prisma.user.findMany();
+        res.status(200).json(users);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Error fetching users");
+    }
 });
 
-app.post('/users', async(req, res) => {
+app.post('/users', cors(), async(req, res) => {
     try{
-    const { name, email, password } = req.body;
+    const { name, bio, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
-    //acum - ora din momentul cand e trimis requestul
-    const acum = new Date().toISOString();
-    const newUser = {
-        id: users.length,
-        name: name,
-        email: email,
-        password: hashedPassword,
-        createdAt: acum, 
-        updatedAt: acum
-
-    }
-    users.push(newUser);
-
+   const newUser = await prisma.user.create({
+    data: {
+        name,
+        bio,
+        createdAt: new Date().toISOString(),
+    },
+   });
     res.status(201).json(newUser);
 }catch(error) {
     console.error(error);
@@ -40,24 +43,46 @@ app.post('/users', async(req, res) => {
 }
 })
 
-app.put('/users/:id', (req, res) => {
+//PUT (Update a user)
+app.put('/users/:id', cors(), async(req, res) => {
     const id = Number(req.params.id);
-    const updates = req.body;
-    const acum = new Date().toISOString();
+    const { name, bio } = req.body;
 
-  users = users.map((user) => (user.id === id ? { ...user, ...updates, updatedAt: acum } : user));
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        name,
+        bio,
+        updatedAt: new Date(),
+      },
+    });
 
-  const updatedUser = users.find((user) => user.id === id);
-  res.status(200).json(updatedUser);
-})
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error updating user");
+  }
+});
+//DELETE a user
+  app.delete("/users/:id", cors(), async (req, res) => {
+    const id = req.params.id;
 
-app.delete('/users/:id', (req, res) => {
-    const id = Number(req.params.id);
-    users = users.filter((user) => user.id !== id); //ii pastreaza pe toti in afara de aia cu id u dat
-    
-    res.status(204).send();
-})
+    try {
+      await prisma.user.delete({
+        where: { id },
+      });
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error deleting user");
+    }
+  });
+
+
 
 app.listen(PORT, () => {
     console.log(`App is listening on at http://localhost:${PORT}`);
 })
+//npx prisma studio - run db
